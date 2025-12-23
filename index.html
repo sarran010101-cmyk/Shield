@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Messenger</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-database-compat.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .setup-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .setup-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .setup-box h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .setup-box p {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .success-message {
+            background: #efe;
+            border: 1px solid #cfc;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .info-box strong {
+            display: block;
+            margin-bottom: 8px;
+            color: #0066cc;
+        }
+
+        .info-box ol {
+            margin-left: 20px;
+        }
+
+        .info-box li {
+            margin-bottom: 5px;
+        }
+
+        .chat-container {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+            background: white;
+        }
+
+        .chat-header {
+            background: #667eea;
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-header h1 {
+            font-size: 20px;
+        }
+
+        .chat-header small {
+            display: block;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        .share-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .share-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 16px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.own {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .message.own .message-bubble {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message:not(.own) .message-bubble {
+            background: white;
+            color: #333;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .message-username {
+            font-weight: 600;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: #667eea;
+        }
+
+        .message.own .message-username {
+            display: none;
+        }
+
+        .message-text {
+            line-height: 1.4;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-container input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 14px;
+        }
+
+        .input-container input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+
+        .send-btn:hover {
+            background: #5568d3;
+        }
+
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .toggle-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .toggle-link:hover {
+            text-decoration: underline;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Setup Screen -->
+    <div id="setupScreen" class="setup-container">
+        <div class="setup-box">
+            <h1>🔥 Firebase Private Messenger</h1>
+            <p>Set up your Firebase configuration to get started</p>
+
+            <div id="errorMessage" class="error-message hidden"></div>
+            <div id="successMessage" class="success-message hidden"></div>
+
+            <div id="configForm">
+                <div class="info-box">
+                    <strong>Quick Setup (3 minutes):</strong>
+                    <ol>
+                        <li>Go to <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a></li>
+                        <li>Click "Add project" → Name it → Create</li>
+                        <li>Click "Web" icon (</>) → Register app</li>
+                        <li>Copy the config object and paste below</li>
+                        <li>Go to "Realtime Database" → Create database → Start in test mode</li>
+                    </ol>
+                </div>
+
+                <div class="form-group">
+                    <label>Firebase Configuration (JSON)</label>
+                    <textarea id="firebaseConfig" placeholder='{
+  "apiKey": "your-api-key",
+  "authDomain": "your-app.firebaseapp.com",
+  "databaseURL": "https://your-app.firebaseio.com",
+  "projectId": "your-project-id",
+  "storageBucket": "your-app.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "your-app-id"
+}'></textarea>
+                </div>
+
+                <button class="btn" onclick="saveConfig()">Save & Continue</button>
+                <div class="toggle-link" onclick="toggleConfigMethod()">Already have a room code? Join here</div>
+            </div>
+
+            <div id="joinForm" class="hidden">
+                <div class="info-box">
+                    <strong>Join an existing room:</strong>
+                    Ask your friend for the room link or code, then paste it below.
+                </div>
+
+                <div class="form-group">
+                    <label>Room Code or Link</label>
+                    <input type="text" id="roomCodeInput" placeholder="Enter room code or paste full URL">
+                </div>
+
+                <button class="btn" onclick="joinRoom()">Join Room</button>
+                <div class="toggle-link" onclick="toggleConfigMethod()">Back to Firebase setup</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Username Screen -->
+    <div id="usernameScreen" class="setup-container hidden">
+        <div class="setup-box">
+            <h1>👋 Welcome!</h1>
+            <p>Enter your name to start chatting</p>
+
+            <div class="form-group">
+                <label>Your Name</label>
+                <input type="text" id="usernameInput" placeholder="Enter your name" maxlength="20">
+            </div>
+
+            <button class="btn" onclick="setUsername()">Start Chatting</button>
+            <button class="btn btn-secondary" onclick="copyRoomLink()">Copy Room Link to Share</button>
+        </div>
+    </div>
+
+    <!-- Chat Screen -->
+    <div id="chatScreen" class="chat-container">
+        <div class="chat-header">
+            <div>
+                <h1>Private Messenger</h1>
+                <small id="chatUsername"></small>
+            </div>
+            <button class="share-btn" onclick="copyRoomLink()">Share Room</button>
+        </div>
+
+        <div id="messagesContainer" class="messages-container">
+            <div class="loading">Loading messages...</div>
+        </div>
+
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type a message..." maxlength="500">
+            <button class="send-btn" onclick="sendMessage()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let db;
+        let username = '';
+        let roomId = '';
+        let firebaseConfig = null;
+
+        function toggleConfigMethod() {
+            document.getElementById('configForm').classList.toggle('hidden');
+            document.getElementById('joinForm').classList.toggle('hidden');
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.classList.remove('hidden');
+            setTimeout(() => errorEl.classList.add('hidden'), 5000);
+        }
+
+        function showSuccess(message) {
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.classList.remove('hidden');
+            setTimeout(() => successEl.classList.add('hidden'), 3000);
+        }
+
+        function saveConfig() {
+            let configText = document.getElementById('firebaseConfig').value.trim();
+            
+            if (!configText) {
+                showError('Please paste your Firebase configuration');
+                return;
+            }
+
+            try {
+                // Remove common issues
+                configText = configText
+                    .replace(/const\s+firebaseConfig\s*=\s*/g, '') // Remove const declaration
+                    .replace(/;[\s]*$/g, '') // Remove trailing semicolon
+                    .replace(/'/g, '"') // Replace single quotes with double quotes
+                    .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+                    .trim();
+
+                // Try to parse
+                firebaseConfig = JSON.parse(configText);
+                
+                // Validate required fields
+                const required = ['apiKey', 'authDomain', 'projectId'];
+                const missing = required.filter(field => !firebaseConfig[field]);
+                
+                if (missing.length > 0) {
+                    showError('Missing required fields: ' + missing.join(', '));
+                    console.log('Current config:', firebaseConfig);
+                    return;
+                }
+
+                // Check for databaseURL
+                if (!firebaseConfig.databaseURL) {
+                    showError('Missing databaseURL. Please create a Realtime Database in Firebase Console first.');
+                    return;
+                }
+
+                // Initialize Firebase
+                try {
+                    firebase.initializeApp(firebaseConfig);
+                    db = firebase.database();
+                } catch (firebaseError) {
+                    if (firebaseError.code === 'app/duplicate-app') {
+                        // App already initialized, get reference
+                        db = firebase.database();
+                    } else {
+                        throw firebaseError;
+                    }
+                }
+
+                // Generate room ID
+                roomId = Math.random().toString(36).substr(2, 9);
+
+                // Save to localStorage
+                localStorage.setItem('firebaseConfig', JSON.stringify(firebaseConfig));
+                localStorage.setItem('roomId', roomId);
+
+                showSuccess('Firebase connected successfully!');
+                
+                // Show username screen
+                setTimeout(() => {
+                    document.getElementById('setupScreen').classList.add('hidden');
+                    document.getElementById('usernameScreen').classList.remove('hidden');
+                }, 1000);
+
+            } catch (error) {
+                showError('Error: ' + error.message + '. Please check your configuration.');
+                console.error('Full error:', error);
+                console.log('Config text:', configText);
+            }
+        }
+
+        function joinRoom() {
+            const input = document.getElementById('roomCodeInput').value.trim();
+            
+            if (!input) {
+                showError('Please enter a room code or link');
+                return;
+            }
+
+            // Extract room ID and config from URL if it's a full link
+            try {
+                if (input.includes('?')) {
+                    const url = new URL(input);
+                    roomId = url.searchParams.get('room');
+                    const configParam = url.searchParams.get('config');
+                    
+                    if (configParam) {
+                        const configText = atob(configParam);
+                        firebaseConfig = JSON.parse(configText);
+                        
+                        // Initialize Firebase
+                        firebase.initializeApp(firebaseConfig);
+                        db = firebase.database();
+                        
+                        localStorage.setItem('firebaseConfig', configText);
+                        localStorage.setItem('roomId', roomId);
+                        
+                        document.getElementById('setupScreen').classList.add('hidden');
+                        document.getElementById('usernameScreen').classList.remove('hidden');
+                        return;
+                    }
+                } else {
+                    roomId = input;
+                }
+
+                // Try to use stored config
+                const storedConfig = localStorage.getItem('firebaseConfig');
+                if (storedConfig) {
+                    firebaseConfig = JSON.parse(storedConfig);
+                    firebase.initializeApp(firebaseConfig);
+                    db = firebase.database();
+                    localStorage.setItem('roomId', roomId);
+                    
+                    document.getElementById('setupScreen').classList.add('hidden');
+                    document.getElementById('usernameScreen').classList.remove('hidden');
+                } else {
+                    showError('Please set up Firebase configuration first');
+                    toggleConfigMethod();
+                }
+            } catch (error) {
+                showError('Invalid room link or code');
+                console.error(error);
+            }
+        }
+
+        function setUsername() {
+            const input = document.getElementById('usernameInput').value.trim();
+            
+            if (!input) {
+                showError('Please enter your name');
+                return;
+            }
+
+            username = input;
+            localStorage.setItem('username', username);
+
+            document.getElementById('usernameScreen').classList.add('hidden');
+            document.getElementById('chatScreen').style.display = 'flex';
+            document.getElementById('chatUsername').textContent = `Chatting as ${username}`;
+
+            loadMessages();
+        }
+
+        function copyRoomLink() {
+            if (!firebaseConfig || !roomId) {
+                showError('Room not ready yet. Please wait a moment.');
+                return;
+            }
+
+            try {
+                const configBase64 = btoa(JSON.stringify(firebaseConfig));
+                const baseUrl = window.location.href.split('?')[0];
+                const url = `${baseUrl}?room=${roomId}&config=${configBase64}`;
+                
+                // Try modern clipboard API
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        showSuccess('Room link copied! Share it with your friends.');
+                    }).catch((err) => {
+                        // Fallback to prompt
+                        fallbackCopy(url);
+                    });
+                } else {
+                    // Fallback for older browsers
+                    fallbackCopy(url);
+                }
+            } catch (error) {
+                console.error('Copy error:', error);
+                showError('Failed to copy link. Try again.');
+        
